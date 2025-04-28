@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptography Tool</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            width: 80%;
+            max-width: 600px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        textarea,
+        input,
+        button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4caf50;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #result {
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+
+        .error {
+            color: red;
+            font-size: 0.8em;
+            margin-top: 5px;
+        }
+
+        .rsa-keys {
+            display: none;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+
+        #rsaKeysToggle {
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Cryptography Tool</h1>
+
+        <div class="form-group">
+            <label for="cipherType">Choose Cipher:</label>
+            <select id="cipherType">
+                <option value="rsa">RSA</option>
+                <option value="caesar">Caesar</option>
+            </select>
+        </div>
+
+        <div id="rsaSection">
+            <h2>RSA Encryption/Decryption</h2>
+            <button id="rsaKeysToggle">Generate RSA Keys</button>
+            <div id="rsaKeys" class="rsa-keys">
+                <div class="form-group">
+                    <label for="publicKey">Public Key (e, n):</label>
+                    <textarea id="publicKey" rows="2" readonly></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="privateKey">Private Key (d, n):</label>
+                    <textarea id="privateKey" rows="2" readonly></textarea>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="rsaMessage">Message:</label>
+                <textarea id="rsaMessage" rows="4" placeholder="Enter message for RSA"></textarea>
+            </div>
+            <button onclick="performRSA()" id="rsaButton">Encrypt/Decrypt</button>
+        </div>
+
+        <div id="caesarSection">
+            <h2>Caesar Cipher</h2>
+            <div class="form-group">
+                <label for="caesarMessage">Message:</label>
+                <textarea id="caesarMessage" rows="4" placeholder="Enter message for Caesar"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="caesarShift">Shift Value (1-25):</label>
+                <input type="number" id="caesarShift" min="1" max="25" value="3">
+                <p id="caesarShiftError" class="error"></p>
+            </div>
+            <button onclick="performCaesar()">Encrypt/Decrypt</button>
+        </div>
+
+        <h2>Result:</h2>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const cipherTypeSelect = document.getElementById('cipherType');
+        const rsaSection = document.getElementById('rsaSection');
+        const caesarSection = document.getElementById('caesarSection');
+        const rsaMessageInput = document.getElementById('rsaMessage');
+        const caesarMessageInput = document.getElementById('caesarMessage');
+        const caesarShiftInput = document.getElementById('caesarShift');
+        const caesarShiftError = document.getElementById('caesarShiftError');
+        const resultDiv = document.getElementById('result');
+        const publicKeyTextarea = document.getElementById('publicKey');
+        const privateKeyTextarea = document.getElementById('privateKey');
+        const rsaKeysDiv = document.getElementById('rsaKeys');
+        const rsaKeysToggle = document.getElementById('rsaKeysToggle');
+
+        // Toggle RSA keys visibility
+        rsaKeysToggle.addEventListener('click', () => {
+            if (rsaKeysDiv.style.display === 'none') {
+                rsaKeysDiv.style.display = 'block';
+                rsaKeysToggle.textContent = 'Hide RSA Keys';
+                generateRSAKeys(); // Generate keys when shown
+            } else {
+                rsaKeysDiv.style.display = 'none';
+                rsaKeysToggle.textContent = 'Generate RSA Keys';
+            }
+        });
+
+        // Initially hide RSA keys
+        rsaKeysDiv.style.display = 'none';
+
+
+        cipherTypeSelect.addEventListener('change', () => {
+            if (cipherTypeSelect.value === 'rsa') {
+                rsaSection.style.display = 'block';
+                caesarSection.style.display = 'none';
+            } else if (cipherTypeSelect.value === 'caesar') {
+                rsaSection.style.display = 'none';
+                caesarSection.style.display = 'block';
+            }
+        });
+
+        // Initialize display
+        cipherTypeSelect.dispatchEvent(new Event('change'));
+
+        function validateCaesarShift() {
+            const shift = parseInt(caesarShiftInput.value);
+            if (isNaN(shift) || shift < 1 || shift > 25) {
+                caesarShiftError.textContent = "Shift value must be between 1 and 25.";
+                return false;
+            } else {
+                caesarShiftError.textContent = "";
+                return true;
+            }
+        }
+
+        caesarShiftInput.addEventListener('input', validateCaesarShift);
+
+        async function performRSA() {
+            const message = rsaMessageInput.value;
+            if (!message) {
+                resultDiv.textContent = "Please enter a message for RSA.";
+                return;
+            }
+
+            try {
+                const keys = await generateRSAKeys(); // Ensure keys are generated
+                const publicKey = keys.publicKey;
+                const privateKey = keys.privateKey;
+
+                const encrypted = await rsaEncrypt(message, publicKey);
+                resultDiv.textContent = `Encrypted (Integer): ${encrypted}\n`;
+                const decrypted = await rsaDecrypt(encrypted, privateKey);
+                resultDiv.textContent += `Decrypted: ${decrypted}`;
+
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error}`;
+            }
+        }
+
+        async function performCaesar() {
+            if (!validateCaesarShift()) return;
+
+            const message = caesarMessageInput.value;
+            const shift = parseInt(caesarShiftInput.value);
+
+            if (!message) {
+                resultDiv.textContent = "Please enter a message for Caesar.";
+                return;
+            }
+
+            try {
+                const encrypted = caesarEncrypt(message, shift);
+                resultDiv.textContent = `Encrypted: ${encrypted}\n`;
+                const decrypted = caesarDecrypt(encrypted, shift);
+                resultDiv.textContent += `Decrypted: ${decrypted}`;
+            } catch (error) {
+                resultDiv.textContent = `Error: ${error}`;
+            }
+        }
+
+        // --- Placeholder functions for the Python logic ---
+        // (These would ideally be replaced with server-side calls)
+
+        async function generateRSAKeys() {
+            // Placeholder: Replace with an actual server-side call to generate RSA keys
+            // and return them in the format {publicKey: [e, n], privateKey: [d, n]}
+            // For now, simulate the key generation
+            const modulus = 3233;  // Example: 61 * 53
+            const publicKey = [17, modulus];
+            const privateKey = [2753, modulus];
+
+            publicKeyTextarea.value = publicKey;
+            privateKeyTextarea.value = privateKey;
+
+            return { publicKey, privateKey };
+        }
+
+        async function rsaEncrypt(plaintext, publicKey) {
+            // Placeholder: Replace with a server-side call to encrypt using RSA
+            // For now, simulate (very simplified)
+            const [e, n] = publicKey;
+            let m = 0;
+            for (let i = 0; i < plaintext.length; i++) {
+                m += plaintext.charCodeAt(i) * Math.pow(256, i);
+            }
+
+            return m % n;
+        }
+
+        async function rsaDecrypt(ciphertext, privateKey) {
+            // Placeholder: Replace with a server-side call to decrypt using RSA
+            // For now, simulate (very simplified)
+            const [d, n] = privateKey;
+            return String.fromCharCode(ciphertext % 256) + String.fromCharCode(Math.floor(ciphertext / 256));
+        }
+
+
+        function caesarEncrypt(plaintext, shift) {
+            let ciphertext = "";
+            for (let i = 0; i < plaintext.length; i++) {
+                let char = plaintext[i];
+                if ('a' <= char && char <= 'z') {
+                    ciphertext += String.fromCharCode(((char.charCodeAt(0) - 'a'.charCodeAt(0) + shift) % 26) + 'a'.charCodeAt(0));
+                } else if ('A' <= char && char <= 'Z') {
+                    ciphertext += String.fromCharCode(((char.charCodeAt(0) - 'A'.charCodeAt(0) + shift) % 26) + 'A'.charCodeAt(0));
+                } else {
+                    ciphertext += char;
+                }
+            }
+            return ciphertext;
+        }
+
+        function caesarDecrypt(ciphertext, shift) {
+            return caesarEncrypt(ciphertext, 26 - shift); // Decrypt is just encrypt with the inverse shift
+        }
+    </script>
+</body>
+
+</html>
